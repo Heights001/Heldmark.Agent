@@ -1,2 +1,4 @@
 # Heldmark.Agent
 Follows one school learner. Cited quizzes, projects, and notes update a sourced profile. A pattern is stated only when the same result has held, and the teacher decides. No label, rank, or path.
+
+Heldmark is an agent for a public basic school where a child's record dies at the school gate. It keeps one learner's quizzes, projects, and teacher notes as cited events, including after a move. When new evidence arrives, it updates that learner's profile. Code states a pattern only when the same kind of result appears at least twice, and every line names the quiz, project, or note it came from. One score, or a missing source, produces no pattern. The profile does not label, score, or rank the child, and it does not suggest a subject path. A named teacher reads it and decides what to raise with the learner and their guardian. The agent does not message them.
