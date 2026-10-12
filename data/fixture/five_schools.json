@@ -1,0 +1,42 @@
+{
+  "about": "Anonymised scenario. One learner, L1, now in Class 2, across five schools. No real child, address, or school. There are no records for 2025.",
+  "learner_id": "L1",
+  "shown_to": "Class 2 teacher, School 5",
+  "schools": [
+    {
+      "school": "School 1",
+      "events": [
+        {"kind": "word_problem", "score": 40, "date": "2024-02-20", "source": "Class 1 word problem quiz, 20 February, School 1"},
+        {"kind": "calculation", "score": 72, "date": "2024-03-05", "source": "Class 1 addition quiz, 5 March, School 1"}
+      ]
+    },
+    {
+      "school": "School 2",
+      "events": [
+        {"kind": "word_problem", "score": 38, "date": "2024-10-15", "source": "Class 1 word problem quiz, 15 October, School 2"},
+        {"kind": "maths", "score": 55, "date": "2024-12-10", "source": "Class 1 term report, Maths, 10 December, School 2"}
+      ]
+    },
+    {
+      "school": "School 3",
+      "events": [
+        {"kind": "calculation", "score": 75, "date": "2026-01-22", "source": "Class 2 subtraction quiz, 22 January, School 3"},
+        {"kind": "note", "date": "2026-02-03", "source": "", "text": "Works carefully when the sum is written as numbers."}
+      ]
+    },
+    {
+      "school": "School 4",
+      "events": [
+        {"kind": "word_problem", "score": 41, "date": "2026-03-19", "source": "Class 2 word problem quiz, 19 March, School 4"},
+        {"kind": "reading_aloud", "score": 55, "date": "2026-03-26", "source": "Class 2 reading aloud check, 26 March, School 4"}
+      ]
+    },
+    {
+      "school": "School 5",
+      "events": [
+        {"kind": "note", "date": "2026-06-08", "source": "Class 2 teacher note, 8 June, School 5", "text": "Asked for the question to be read aloud twice before starting."},
+        {"kind": "project", "date": "2026-06-15", "source": "Class 2 market stall project, 15 June, School 5"}
+      ]
+    }
+  ]
+}
