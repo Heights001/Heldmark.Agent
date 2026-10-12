@@ -34,7 +34,9 @@ One new quiz, project, or note starts a single LangGraph workflow.
 
 Prior-school files are read from a local folder through a borrowed Filesystem MCP server. Learner memory is SQLite. Facts are append-only.
 
-The full architecture document is in [docs/architecture.pdf](docs/architecture.pdf).
+![Heldmark architecture: new evidence flows through LangGraph, rules in code, and a local LLM to the teacher, backed by the heldmark-records MCP server, SQLite, and a borrowed Filesystem MCP server](docs/architecture.png)
+
+The same diagram is available as a PDF in [docs/architecture.pdf](docs/architecture.pdf).
 
 ## Setup/installation instructions
 
