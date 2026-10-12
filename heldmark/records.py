@@ -5,7 +5,6 @@ the command line both call it, and every call lands in the audit log with its
 input, output, timestamp, and learner id.
 """
 
-import json
 import re
 import sqlite3
 from dataclasses import asdict
@@ -29,11 +28,7 @@ class Records:
         self.conn = conn
 
     def _log(self, tool: str, learner_id: str | None, given: dict, output, outcome: str = "ok") -> None:
-        self.conn.execute(
-            "INSERT INTO audit_log (at, tool, learner_id, input, output, outcome) VALUES (?, ?, ?, ?, ?, ?)",
-            (store.now(), tool, learner_id, json.dumps(given, default=str), json.dumps(output, default=str), outcome),
-        )
-        self.conn.commit()
+        store.log(self.conn, tool, learner_id, given, output, outcome)
 
     def _reject(self, tool: str, learner_id: str | None, given: dict, reason: str):
         self._log(tool, learner_id, given, {"rejected": reason}, "rejected")
@@ -65,9 +60,10 @@ class Records:
             self._reject("append_event", learner_id, given, "A note needs its text.")
         if score is not None and (isinstance(score, bool) or not isinstance(score, (int, float))):
             self._reject("append_event", learner_id, given, "Score must be a number.")
-        event_date = date or _today()
+        if not date:
+            self._reject("append_event", learner_id, given, "No date. Give the date of the event, such as 2026-03-12.")
         try:
-            event_date = _iso(event_date)
+            event_date = _iso(date)
         except ValueError:
             self._reject("append_event", learner_id, given, "Date must look like 2026-03-12.")
 
@@ -130,10 +126,6 @@ class Records:
             "SELECT * FROM events WHERE learner_id = ? ORDER BY event_date, id", (learner_id,)
         )
         return [dict(row) for row in rows]
-
-
-def _today() -> str:
-    return date.today().isoformat()
 
 
 def _iso(value: str) -> str:

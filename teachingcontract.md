@@ -1,4 +1,8 @@
-# Teaching contract: how day one of Heldmark was built
+# Teaching contract: how Heldmark was built
+
+Part 1 is day one: the store, the rules, our MCP server, and the command line. Part 2 is day two: the graph, the borrowed Filesystem server, and the local model.
+
+# Part 1. Day one
 
 This is a walk through the build in the order it was done, so you can rebuild it yourself later. Each step says what was made, why it was made that way, and what to try on your own.
 
@@ -129,13 +133,140 @@ Test 14 fails on purpose and is marked `xfail(strict=True)`. That mark means "th
 
 **Try it:** `python -m pytest -v`, then `python -m pytest --runxfail -k two_school_names`.
 
-## What was not built
+# Part 2. Day two
 
-LangGraph, Ollama, the Filesystem MCP server, `ARCHITECTURE.md`, and the video. Where they will attach:
+Day two added four files and changed nothing about what the profile may say.
 
-- **LangGraph** will be an MCP client that calls `append_event`, `list_events`, and `update_profile` in a fixed order. It should not import `rules.py` directly.
-- **Ollama** will take the `lines` that `update_profile` returns and rephrase each sentence. Check its output against the lines: same citations, no new line, no label word.
-- **The Filesystem MCP server** will read prior-school files from a local intake folder. Those files become `append_event` calls.
+```
+heldmark/intake.py      text of a prior-school file -> candidate events (pure)
+heldmark/toolbox.py     the only way the graph reaches a tool
+heldmark/phrase.py      the claim sheet, the guard, and the Ollama client
+heldmark/graph.py       the LangGraph workflow
+heldmark/run.py         python -m heldmark.run
+package.json            pins the borrowed Filesystem MCP server
+tests/test_graph.py     the day-two evals
+```
+
+## Step 9. Fix first: `--date` is required
+
+On day one, `add-event` with no date stored today's date. A source that said "12 March" was saved as 12 October. That is a false fact in an append-only table, so it could never be corrected.
+
+Two changes:
+
+1. In `__main__.py`, `--date` got `required=True`. argparse now exits with code 2 before the database is even opened, so nothing can be written.
+2. In `records.py`, `append_event` refuses an event with no date. This closes the same hole for callers that do not come through the command line, such as the graph.
+
+The lesson: when you fix a hole at the front door, check whether there is a back door. Then write the test for the thing that must not happen: `test_add_event_without_a_date_exits_and_writes_no_row` counts the rows and expects zero.
+
+## Step 10. Borrow the Filesystem MCP server
+
+The official Filesystem server is a Node.js program. `package.json` pins one exact version, and `npm install` puts it in `node_modules/`. Heldmark starts it as a child process:
+
+```
+node node_modules/@modelcontextprotocol/server-filesystem/dist/index.js <intake folder>
+```
+
+The folder on the command line is the only place it may look. Ask it for `/etc/hosts` and it answers "Access denied - path outside allowed directories". It makes no network calls. Installing it once with `npm install` is the only step that needs the internet.
+
+Why install it locally and not run `npx -y ...` each time: `npx -y` downloads whatever is newest at that moment. A pinned local copy runs offline and does not change under you.
+
+**Try it:** run the command above by hand with a folder. It waits silently for MCP messages on standard input. Press Ctrl-C.
+
+## Step 11. One toolbox between the graph and the tools (`toolbox.py`)
+
+The graph never talks to a server directly. It asks a `Toolbox`, which holds two MCP clients:
+
+- `tools.records("append_event", ...)` calls our server. Our server logs the call itself.
+- `tools.filesystem("read_text_file", path=...)` calls the borrowed server.
+
+Three things happen in this one file, and that is why it exists:
+
+1. **Read-only is enforced here.** The borrowed server also offers `write_file`, `edit_file`, and `move_file`. The toolbox has an allow-list of two names, `list_directory` and `read_text_file`. Anything else is refused and logged without being sent.
+2. **The filesystem read is logged here.** The borrowed server knows nothing about our audit log, so the toolbox appends a row for each read: input, output, timestamp, learner id. It writes audit rows only, never events or profiles.
+3. **Tests can swap the servers.** `Toolbox` accepts anything `mcp.Client` accepts. In the real run those are two child processes. In the tests they are two server objects in the same process, so the tests need no Node and no network.
+
+**Try it:** read `stand_in_filesystem` in `tests/test_graph.py`. It is a complete MCP server in about twenty lines.
+
+## Step 12. Parse intake files in a pure function (`intake.py`)
+
+`intake.parse(name, text, learner_id)` takes the text of a file and returns candidate events. It opens no file and calls no tool, so it is easy to test.
+
+It makes one decision: a file for a different learner is dropped whole, and only the line "for a different learner. Not used." is passed on. It does **not** decide whether an event is valid. A note with no source is still sent to `append_event`, which refuses it and logs the refusal. Validation lives in one place.
+
+## Step 13. The graph (`graph.py`)
+
+LangGraph runs functions called nodes and passes a dictionary called the state from one to the next. Each node returns only the keys it wants to add or change.
+
+```
+read_intake -> append_events -> list_events -> update_profile -> phrase -> END
+```
+
+- `read_intake` lists the folder and reads each `.json` file through the Filesystem server.
+- `append_events` calls `append_event` once per candidate and counts what was stored and what was refused.
+- `list_events` calls `list_events` for this one learner.
+- `update_profile` calls `update_profile` and keeps the lines the rules produced.
+- `phrase` hands those lines to the model, or skips if the model is not there.
+
+The edges are fixed with `add_edge`. There is no conditional edge and no step where the model picks what happens next. That is what "the model does not choose the steps" means in code.
+
+Look at the imports at the top of `graph.py`: `intake`, `phrase`, and `toolbox`. There is no `store`, no `records`, no `sqlite3`. `test_graph_nodes_do_not_import_the_database` reads the file and fails if one ever appears.
+
+One small change to our server made this possible: `update_profile` now also returns the lines as structured data, not only as text. The tool list did not change.
+
+**Try it:** add `print(state.keys())` at the top of each node and run `python -m heldmark.run`. Watch the state grow.
+
+## Step 14. The claim sheet and the guard (`phrase.py`)
+
+This is the most important file of day two.
+
+**What the model is given.** For each line the rules allowed, `claim_for_model` builds a dictionary with exactly two keys: `claim` (the rule sentence) and `sources` (its citations). One line at a time. The model never sees the events table, another learner, the learner id, or any list of subjects or programmes.
+
+**What the model gives back.** One sentence. The citations are not part of its answer. Code attaches the original citations to whatever sentence survives, so the model has no way to add or remove a source.
+
+**The guard.** `check(sentence, line)` returns the reason a sentence must be discarded, or `None`. The checks, in order:
+
+| Check | Discarded when the sentence |
+|---|---|
+| path | uses advice or path words: should, recommend, programme, career, remedial |
+| label or rank | uses a label, a judgement, or a comparison: weak, strong, low, bottom of, classmates |
+| source | names a quiz, test, exam, report, month, school, or class that is not in the sheet |
+| number | contains a number that is not in the sheet |
+| dropped result | leaves out one of the cited scores |
+| note wording | changes the quoted words of a teacher note |
+| new claim | adds a trend: improved, declined, always, on average |
+| pattern | says "pattern" or "consistent" about a line the rules did not put under "held" |
+
+A word is only "added" if it is not already in the claim sheet. If the source says "term report", the model may say "report".
+
+When a sentence is discarded, `phrase_lines` puts the rule text back and records the reason. One bad sentence does not affect the other lines. If the model crashes or times out, that also counts as a discard.
+
+The lesson: do not ask a model to behave. Give it less, then check what it returns with ordinary code, and keep a safe answer ready.
+
+**Try it:** in a Python shell, take one line from `update_profile(...)["lines"]` and call `phrase.check("The learner is weak at word problems, scoring 40, 38 and 41.", line)`.
+
+## Step 15. Talking to Ollama
+
+`OllamaModel` uses only the standard library (`urllib`) to call Ollama on `http://localhost:11434`. There is no cloud account and no API key.
+
+- `ready()` asks `/api/tags` which models are present. It returns `None` if `llama3.1:8b` can be used, or a sentence saying why not.
+- `phrase(claim)` posts to `/api/chat` with temperature 0 and a JSON schema, so the reply is always `{"sentence": "..."}`.
+
+`python -m heldmark.run` calls `ready()` first. If Ollama is down it prints the rule profile and the line "PHRASING SKIPPED". The rule profile is always printed first, so the teacher can compare.
+
+## Step 16. Testing without the model
+
+`FakeModel` in `tests/test_graph.py` is a class with the same three members as `OllamaModel`: `name`, `ready()`, `phrase()`. It says whatever the test tells it to say and remembers everything it was shown.
+
+- To test the guard, the fake returns a sentence with a label, a rank, a path, a new source, or a new number.
+- To test what the model receives, the test puts a classmate's file in the intake folder and then searches everything the fake was shown.
+
+Exactly one test calls the real model. It carries `@pytest.mark.ollama` and a `skipif` that calls `ready()`, so it runs when Ollama is up and is skipped when it is not. It does not check the model's wording, because wording changes. It checks what must always hold: same citations, and every kept sentence passes the guard.
+
+**Try it:** `python -m pytest -m ollama -v` with Ollama running, then stop Ollama and run it again.
+
+## What is still not built
+
+`ARCHITECTURE.md` and the video.
 
 ## Words worth knowing
 
@@ -146,3 +277,8 @@ LangGraph, Ollama, the Filesystem MCP server, `ARCHITECTURE.md`, and the video. 
 - **stdio transport:** client and server talk through a child process's standard input and output.
 - **Fixture:** fixed, known data used by tests and the demo.
 - **xfail:** a test recorded as expected to fail.
+- **LangGraph node / state / edge:** a node is a function, the state is the dictionary passed between nodes, an edge says which node runs next.
+- **Claim sheet:** the only text the model is shown: one rule sentence and its sources.
+- **Guard:** ordinary code that decides whether a model sentence may be kept.
+- **Fake model:** a stand-in used by tests so they do not need Ollama.
+- **Pinned dependency:** an exact version number, so the code you run tomorrow is the code you ran today.

@@ -40,25 +40,35 @@ The same diagram is available as a PDF in [docs/architecture.pdf](docs/architect
 
 ## Setup/installation instructions
 
-Requirements: Python 3.11+, [Ollama](https://ollama.com), and the Llama 3.1 8B Instruct model pulled locally.
+Requirements: Python 3.11+ and Node.js 18+ (for the borrowed Filesystem MCP server). [Ollama](https://ollama.com) with the Llama 3.1 8B Instruct model is needed only for the phrasing step.
 
 ```bash
 git clone https://github.com/Heights001/Heldmark.Agent.git
 cd Heldmark.Agent
 python -m venv .venv && source .venv/bin/activate
-pip install -e .
-ollama pull llama3.1:8b
+pip install -e ".[dev]"
 python -m heldmark.demo
+python -m pytest
 ```
 
-`python -m heldmark.demo` loads the five-school fixture and prints the sourced profile. No learner data leaves the machine.
+`python -m heldmark.demo` loads the five-school fixture and prints the sourced profile. The demo and the tests do not need Ollama. No learner data leaves the machine.
+
+To run the full graph:
+
+```bash
+npm install
+ollama pull llama3.1:8b
+python -m heldmark.run
+```
+
+`python -m heldmark.run` reads the intake folder through the Filesystem MCP server, stores each valid cited event through `heldmark-records`, rewrites the profile from the rules, and then uses the local model when it is available. If Ollama is not running, it still prints the rule profile and says the phrasing was skipped. If a model sentence adds a label, a rank, a path, or a source that was not given to it, that sentence is discarded and the rule text is kept.
 
 ## Usage instructions
 
 Add one cited event, then refresh the profile:
 
 ```bash
-python -m heldmark add-event --learner L1 --source "Class 2 word problem, 12 March, School 4" --kind word_problem --score 40
+python -m heldmark add-event --learner L1 --source "Class 2 word problem, 12 March, School 4" --kind word_problem --score 40 --date 2026-03-12
 python -m heldmark update-profile --learner L1
 ```
 

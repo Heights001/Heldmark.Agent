@@ -38,7 +38,7 @@ TOOL_LIST = [
                 "school": {"type": "string"},
                 "date": {"type": "string", "description": "ISO date of the event, e.g. 2026-03-12."},
             },
-            "required": ["learner_id", "kind", "source"],
+            "required": ["learner_id", "kind", "source", "date"],
             "additionalProperties": False,
         },
     ),
@@ -68,9 +68,11 @@ TOOL_LIST = [
 ]
 
 
-def _result(payload, is_error: bool = False) -> types.CallToolResult:
+def _result(payload, is_error: bool = False, structured: dict | None = None) -> types.CallToolResult:
     text = payload if isinstance(payload, str) else json.dumps(payload, indent=2)
-    return types.CallToolResult(content=[types.TextContent(type="text", text=text)], is_error=is_error)
+    return types.CallToolResult(
+        content=[types.TextContent(type="text", text=text)], structured_content=structured, is_error=is_error
+    )
 
 
 def build_server(records: Records) -> Server:
@@ -81,12 +83,15 @@ def build_server(records: Records) -> Server:
         args = dict(params.arguments or {})
         try:
             if params.name == "append_event":
-                return _result(records.append_event(**args))
+                event = records.append_event(**args)
+                return _result(event, structured=event)
             if params.name == "list_events":
-                return _result(records.list_events(**args))
+                events = records.list_events(**args)
+                return _result(events, structured={"events": events})
             if params.name == "update_profile":
                 args.setdefault("shown_to", DEFAULT_TEACHER)
-                return _result(records.update_profile(**args)["text"])
+                profile = records.update_profile(**args)
+                return _result(profile["text"], structured=profile)
             records.refuse(params.name, args)
         except Rejected as refusal:
             return _result(str(refusal), is_error=True)

@@ -1,0 +1,9 @@
+{
+  "name": "heldmark-borrowed-servers",
+  "private": true,
+  "description": "Pins the borrowed official Filesystem MCP server. Heldmark itself is Python.",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/server-filesystem": "2026.8.31"
+  }
+}

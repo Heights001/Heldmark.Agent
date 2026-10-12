@@ -64,7 +64,7 @@ def test_missing_year_is_stated_as_missing(fixture_profile):
 # 5
 def test_unsourced_note_is_refused(records):
     with pytest.raises(Rejected, match="No source"):
-        records.append_event("L1", "note", "  ", text="Works carefully with numbers.")
+        records.append_event("L1", "note", "  ", text="Works carefully with numbers.", date="2026-02-03")
     assert records.list_events("L1") == []
     assert records.audit()[0]["outcome"] == "rejected"
     # The rules also refuse it if one ever reached them.
@@ -174,12 +174,28 @@ def test_readme_demo_command_prints_the_fixture_profile():
 def test_readme_usage_commands(tmp_path, capsys):
     db = str(tmp_path / "h.db")
     added = ["--db", db, "add-event", "--learner", "L1", "--source", "Class 2 word problem, 12 March, School 4"]
-    assert cli(added + ["--kind", "word_problem", "--score", "40"]) == 0
+    assert cli(added + ["--kind", "word_problem", "--score", "40", "--date", "2026-03-12"]) == 0
     assert cli(["--db", db, "update-profile", "--learner", "L1"]) == 0
     out = capsys.readouterr().out
     assert "Word problem: 40, on record once. One result is not a pattern." in out
-    assert "Class 2 word problem, 12 March, School 4" in out
+    assert "Class 2 word problem, 12 March, School 4 (2026-03-12)" in out
     assert "Held more than once" not in out
+
+
+# 12b
+def test_add_event_without_a_date_exits_and_writes_no_row(tmp_path, capsys):
+    db = str(tmp_path / "h.db")
+    command = ["--db", db, "add-event", "--learner", "L1", "--kind", "word_problem", "--score", "40"]
+    with pytest.raises(SystemExit) as stopped:
+        cli(command + ["--source", "Class 2 word problem, 12 March, School 4"])
+    assert stopped.value.code == 2
+    assert "--date" in capsys.readouterr().err
+    conn = store.connect(db)
+    assert conn.execute("SELECT count(*) FROM events").fetchone()[0] == 0
+    # The same door is shut behind the command line: the records refuse an event with no date.
+    with pytest.raises(Rejected, match="No date"):
+        Records(conn).append_event("L1", "word_problem", "Class 2 word problem, 12 March, School 4", score=40)
+    assert conn.execute("SELECT count(*) FROM events").fetchone()[0] == 0
 
 
 # 13
@@ -189,7 +205,7 @@ def test_profile_does_not_label_rank_or_suggest_a_path(records):
         "L1", "note", "Class 2 teacher note, 20 June, School 5", text="A slow learner, bottom of the class.", date="2026-06-20"
     )
     with pytest.raises(Rejected, match="labels the learner"):
-        records.append_event("L1", "weak_pupil", "Class 2 list, School 5", score=1)
+        records.append_event("L1", "weak_pupil", "Class 2 list, School 5", score=1, date="2026-06-20")
     text = records.update_profile("L1")["text"]
     assert "slow learner" not in text and "bottom of" not in text
     assert "Class 2 teacher note, 20 June, School 5" in text  # still cited, wording withheld

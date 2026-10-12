@@ -1,6 +1,6 @@
 """Command line.
 
-python -m heldmark add-event --learner L1 --source "..." --kind word_problem --score 40
+python -m heldmark add-event --learner L1 --source "..." --kind word_problem --score 40 --date 2026-03-12
 python -m heldmark update-profile --learner L1
 python -m heldmark list-events --learner L1
 """
@@ -27,7 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
     add.add_argument("--score", type=float)
     add.add_argument("--text", help="the wording of a teacher note")
     add.add_argument("--school")
-    add.add_argument("--date", help="ISO date of the event (default: today)")
+    add.add_argument("--date", required=True, help="ISO date of the event, e.g. 2026-03-12")
 
     update = commands.add_parser("update-profile", help="rewrite and print the sourced profile")
     update.add_argument("--learner", required=True)
@@ -68,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "add-event":
             event = records.append_event(
-                args.learner, args.kind, args.source, args.score, args.text, args.school, args.date
+                args.learner, args.kind, args.source, args.score, args.text, args.school, date=args.date
             )
             print(f"Stored event {event['id']} for learner {event['learner_id']}: {event['kind']}, {event['source']}")
         elif args.command == "update-profile":

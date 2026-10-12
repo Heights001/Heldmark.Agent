@@ -1,14 +1,17 @@
 # Evals
 
-Run on 12 October 2026 with Python 3.11, mcp 2.3.0, pytest 9.1.1.
+Last run on 12 October 2026 with Python 3.11, mcp 2.3.0, langgraph 1.2.14, pytest 9.1.1.
 
 ```bash
 python -m pytest -v
 ```
 
-Result: **17 passed, 1 expected failure left open.** The 17 are 13 tests; the rejection test runs once for each of five forbidden requests.
+Result with Ollama stopped: **33 passed, 1 skipped, 1 expected failure left open.**
+Result with Ollama running: not recorded yet. The model was still downloading when this was written.
 
-## What is checked
+The demo and every test except one are model-free. The skipped test is the one marked `ollama`, which calls the real local model and runs only when Ollama is up with `llama3.1:8b`.
+
+## Day one: store, rules, and our MCP server
 
 | # | Check | Test | Result |
 |---|---|---|---|
@@ -23,9 +26,26 @@ Result: **17 passed, 1 expected failure left open.** The 17 are 13 tests; the re
 | 9 | Events and the audit log are append-only. UPDATE and DELETE abort. | `test_events_are_append_only` | pass |
 | 10 | The MCP server exposes exactly `append_event`, `list_events`, `update_profile`, and the resource `learner://{id}/events`. | `test_mcp_server_has_exactly_three_tools_and_one_resource` | pass |
 | 11 | `python -m heldmark.demo` loads `data/fixture/five_schools.json` and prints the profile. | `test_readme_demo_command_prints_the_fixture_profile` | pass |
-| 12 | The README `add-event` and `update-profile` commands work. | `test_readme_usage_commands` | pass |
+| 12 | The README `add-event` and `update-profile` commands work, and the event keeps the date it was given. | `test_readme_usage_commands` | pass |
+| 12b | `add-event` with no `--date` exits with an error and writes no row. The records refuse a dateless event too. | `test_add_event_without_a_date_exits_and_writes_no_row` | pass |
 | 13 | The profile carries no label, rank, or path. A note that labels the child is cited but not repeated. A task kind that labels the child is refused. | `test_profile_does_not_label_rank_or_suggest_a_path` | pass |
 | 14 | The same task under two school names is one pattern. | `test_same_task_under_two_school_names_is_one_pattern` | **fail, left open** |
+
+## Day two: graph, Filesystem server, and phrasing
+
+| # | Check | Test | Result |
+|---|---|---|---|
+| 15 | The graph runs one update: read intake, append, list, update profile, phrase. 9 events stored, 1 refused. | `test_graph_runs_one_update_through_both_servers` | pass |
+| 16 | Every tool call is in the audit log with input, output, timestamp, and learner id, including the filesystem read. 14 calls, 14 rows. | `test_every_tool_call_is_in_the_audit_log_including_the_filesystem_read` | pass |
+| 17 | The Filesystem server is used for reading only. A write and a read outside the intake folder are refused and logged. | `test_the_filesystem_server_is_used_for_reading_only` | pass |
+| 18 | The graph nodes do not import the database. | `test_graph_nodes_do_not_import_the_database` | pass |
+| 19 | A fake model's sentence that adds a label, a rank, a path, a source, or a number, or drops a result, is discarded and the rule text is kept. | `test_a_sentence_that_adds_a_label_rank_path_or_source_is_discarded` (6 cases) | pass |
+| 20 | A faithful sentence is kept and keeps its sources. | `test_a_faithful_sentence_is_kept_and_keeps_its_sources` | pass |
+| 21 | A single score cannot be phrased into a pattern. | `test_a_single_score_cannot_be_phrased_into_a_pattern` | pass |
+| 22 | The model receives only the claim sheet: no classmate data, no learner id, no path menu. A classmate's file in the intake folder is not stored. | `test_the_model_receives_only_the_claim_sheet` | pass |
+| 23 | With Ollama down, the rule profile is printed and the phrasing is reported as skipped. | `test_with_ollama_down_the_rule_profile_is_printed_and_phrasing_is_skipped` | pass |
+| 24 | The full graph works with the real borrowed Filesystem server and our server as child processes. | `test_full_graph_with_the_real_filesystem_server_and_our_server_over_stdio` | pass (skipped if `npm install` was not run) |
+| 25 | The open-weights task: the real `llama3.1:8b` yields only checked sentences and cannot change a source. | `test_real_local_model_only_ever_yields_checked_sentences` | not run yet (model still downloading) |
 
 ## The one failure left open
 
@@ -60,4 +80,5 @@ FAILED tests/test_heldmark.py::test_same_task_under_two_school_names_is_one_patt
 
 - A "year" is a calendar year, not a school year.
 - Scores are compared as written. A mark out of 20 and a mark out of 100 would be listed side by side.
-- `add-event` with no `--date` records today's date as the event date.
+- Events are append-only and not de-duplicated. `python -m heldmark.run` uses a fresh store each time; pointing `--db` at a kept store and running the same intake folder twice would store each event twice.
+- The phrasing guard works on words. It is strict, so it also discards some harmless sentences, and the rule text is shown in their place.

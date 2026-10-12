@@ -11,7 +11,7 @@ requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Daniel Okoh Yeboah" }]
-dependencies = ["mcp>=2.3,<3"]
+dependencies = ["mcp>=2.3,<3", "langgraph>=1.2,<2"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
@@ -25,3 +25,4 @@ packages = ["heldmark"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["ollama: calls the real local model; skipped unless Ollama is running with llama3.1:8b"]

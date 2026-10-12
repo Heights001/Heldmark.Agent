@@ -4,6 +4,7 @@ Events and the audit log are append-only: triggers abort any UPDATE or DELETE.
 The profile is the only row that is ever rewritten.
 """
 
+import json
 import os
 import sqlite3
 from datetime import datetime, timezone
@@ -52,6 +53,15 @@ BEGIN SELECT RAISE(ABORT, 'audit log is append-only'); END;
 CREATE TRIGGER IF NOT EXISTS audit_no_delete BEFORE DELETE ON audit_log
 BEGIN SELECT RAISE(ABORT, 'audit log is append-only'); END;
 """
+
+
+def log(conn: sqlite3.Connection, tool: str, learner_id: str | None, given, output, outcome: str = "ok") -> None:
+    """Append one row to the audit log: input, output, timestamp, learner id."""
+    conn.execute(
+        "INSERT INTO audit_log (at, tool, learner_id, input, output, outcome) VALUES (?, ?, ?, ?, ?, ?)",
+        (now(), tool, learner_id, json.dumps(given, default=str), json.dumps(output, default=str), outcome),
+    )
+    conn.commit()
 
 
 def now() -> str:
