@@ -34,6 +34,8 @@ One new quiz, project, or note starts a single LangGraph workflow.
 
 Prior-school files are read from a local folder through a borrowed Filesystem MCP server. Learner memory is SQLite. Facts are append-only.
 
+The full architecture document is in [docs/architecture.pdf](docs/architecture.pdf).
+
 ## Setup/installation instructions
 
 Requirements: Python 3.11+, [Ollama](https://ollama.com), and the Llama 3.1 8B Instruct model pulled locally.
