@@ -213,6 +213,31 @@ def test_a_single_score_cannot_be_phrased_into_a_pattern():
     assert results[0]["kept"] is False and results[0]["text"] == once["text"]
 
 
+# 21b: llama3.1:8b really wrote this on 12 October 2026, and the guard of that day kept it.
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "The learner read aloud 55 times, which is a single instance.",
+        "The learner read aloud 55 times, and that one result is not a pattern.",
+        "On 55 occasions the learner read aloud, a single result.",
+        "The learner read aloud 55 words in one result.",
+        "Reading aloud happened once, with 55.",
+    ],
+)
+def test_a_score_rewritten_as_a_count_is_discarded(sentence):
+    once = next(line for line in fixture_lines() if line["section"] == "once")
+    assert once["text"].startswith("Reading aloud: 55, on record once")
+    results = phrase.phrase_lines([once], FakeModel(lambda claim: sentence))
+    assert results[0]["kept"] is False
+    assert results[0]["discarded_because"] == "it rewrote a score as a count"
+    assert results[0]["text"] == once["text"]  # the rule line remains
+    rendered = phrase.render(results)
+    assert "Reading aloud: 55, on record once" in rendered and "55 times" not in rendered
+    # A sentence that keeps 55 as a score still stands.
+    kept = phrase.phrase_lines([once], FakeModel(lambda claim: "Reading aloud has one score on record, 55."))
+    assert kept[0]["kept"]
+
+
 # 22
 def test_the_model_receives_only_the_claim_sheet(db, intake_dir):
     (intake_dir / "classmate.json").write_text(json.dumps(CLASSMATE_FILE))

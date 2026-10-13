@@ -54,6 +54,13 @@ CLAIM_TERMS = re.compile(
 PATTERN_TERMS = re.compile(r"\b(pattern\w*|consistent\w*|repeated\w*|held|holds)\b", re.IGNORECASE)
 NO_PATTERN = re.compile(r"\b(not a pattern|no pattern|not enough|does not show|cannot show)\b", re.IGNORECASE)
 
+# A cited number is a score. These words beside it would turn it into a count or a repeated action.
+COUNT_UNITS = (
+    r"times?|occasions?|instances?|attempts?|tries|repetitions?|repeats?|rounds?|turns?|"
+    r"words?|pages?|lines?|questions?|sums?|minutes?|hours?|days?|weeks?|lessons?|sessions?"
+)
+SCORE_WORDS = re.compile(r"\b(scor\w*|marks?|results?)\b", re.IGNORECASE)
+
 NUMBER_WORDS = {
     "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
     "ten": 10, "eleven": 11, "twelve": 12, "twice": 2, "thrice": 3,
@@ -87,6 +94,20 @@ def _added(pattern: re.Pattern, sentence: str, sheet: str) -> list[str]:
     return [m.group(0) for m in pattern.finditer(sentence) if _stem(m.group(0)) not in sheet]
 
 
+def _score_as_count(sentence: str, scores: set[float]) -> bool:
+    """True if a cited score is written as a count ("55 times") or the sentence no longer calls it a score."""
+    if not scores:
+        return False
+    if not SCORE_WORDS.search(sentence):
+        return True
+    for score in scores:
+        number = re.escape(rules.fmt_score(score))
+        beside = rf"(?<![\d.]){number}(?![\d.])\s+(?:\w+\s+)?(?:{COUNT_UNITS})\b|\b(?:{COUNT_UNITS})\s+{number}(?![\d.])"
+        if re.search(beside, sentence, re.IGNORECASE):
+            return True
+    return False
+
+
 def check(sentence: str, line: dict) -> str | None:
     """Return why a model sentence must be discarded, or None if it may stand."""
     sentence = (sentence or "").strip()
@@ -107,6 +128,8 @@ def check(sentence: str, line: dict) -> str | None:
     scores = {float(cite["score"]) for cite in line["cites"] if cite.get("score") is not None}
     if scores - _numbers(sentence):
         return "it dropped a cited result"
+    if _score_as_count(sentence, scores):
+        return "it rewrote a score as a count"
     if any(quote not in sentence for quote in re.findall(r'"[^"]+"', line["text"])):
         return "it changed the wording of a note"
     if _added(CLAIM_TERMS, sentence, sheet):

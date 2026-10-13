@@ -232,6 +232,7 @@ This is the most important file of day two.
 | source | names a quiz, test, exam, report, month, school, or class that is not in the sheet |
 | number | contains a number that is not in the sheet |
 | dropped result | leaves out one of the cited scores |
+| score as count | puts a count word beside a cited score ("55 times"), or stops calling it a score, mark, or result |
 | note wording | changes the quoted words of a teacher note |
 | new claim | adds a trend: improved, declined, always, on average |
 | pattern | says "pattern" or "consistent" about a line the rules did not put under "held" |
@@ -243,6 +244,8 @@ When a sentence is discarded, `phrase_lines` puts the rule text back and records
 The lesson: do not ask a model to behave. Give it less, then check what it returns with ordinary code, and keep a safe answer ready.
 
 **Try it:** in a Python shell, take one line from `update_profile(...)["lines"]` and call `phrase.check("The learner is weak at word problems, scoring 40, 38 and 41.", line)`.
+
+The "score as count" row was added after the first real run. `llama3.1:8b` turned "Reading aloud: 55, on record once" into "The learner read aloud 55 times", and the guard kept it, because every earlier check looked for something *added* and this sentence added nothing. The lesson: run the real model early, read its output yourself, and turn each bad sentence you find into a fake-model test before you fix the guard.
 
 ## Step 15. Talking to Ollama
 

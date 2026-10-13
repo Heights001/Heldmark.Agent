@@ -1,13 +1,13 @@
 # Evals
 
-Last run on 12 October 2026 with Python 3.11, mcp 2.3.0, langgraph 1.2.14, pytest 9.1.1.
+Last run on 13 October 2026 with Python 3.11, mcp 2.3.0, langgraph 1.2.14, pytest 9.1.1.
 
 ```bash
 python -m pytest -v
 ```
 
-Result with Ollama stopped: **33 passed, 1 skipped, 1 expected failure left open.**
-Result with Ollama running: not recorded yet. The model was still downloading when this was written.
+Result with Ollama stopped: **38 passed, 1 skipped, 1 expected failure left open.**
+Result with Ollama running: **39 passed, 1 expected failure left open.**
 
 The demo and every test except one are model-free. The skipped test is the one marked `ollama`, which calls the real local model and runs only when Ollama is up with `llama3.1:8b`.
 
@@ -42,10 +42,29 @@ The demo and every test except one are model-free. The skipped test is the one m
 | 19 | A fake model's sentence that adds a label, a rank, a path, a source, or a number, or drops a result, is discarded and the rule text is kept. | `test_a_sentence_that_adds_a_label_rank_path_or_source_is_discarded` (6 cases) | pass |
 | 20 | A faithful sentence is kept and keeps its sources. | `test_a_faithful_sentence_is_kept_and_keeps_its_sources` | pass |
 | 21 | A single score cannot be phrased into a pattern. | `test_a_single_score_cannot_be_phrased_into_a_pattern` | pass |
+| 21b | A score rewritten as a count or a repeated action ("read aloud 55 times") is discarded and the rule line remains. | `test_a_score_rewritten_as_a_count_is_discarded` (5 cases) | pass |
 | 22 | The model receives only the claim sheet: no classmate data, no learner id, no path menu. A classmate's file in the intake folder is not stored. | `test_the_model_receives_only_the_claim_sheet` | pass |
 | 23 | With Ollama down, the rule profile is printed and the phrasing is reported as skipped. | `test_with_ollama_down_the_rule_profile_is_printed_and_phrasing_is_skipped` | pass |
 | 24 | The full graph works with the real borrowed Filesystem server and our server as child processes. | `test_full_graph_with_the_real_filesystem_server_and_our_server_over_stdio` | pass (skipped if `npm install` was not run) |
-| 25 | The open-weights task: the real `llama3.1:8b` yields only checked sentences and cannot change a source. | `test_real_local_model_only_ever_yields_checked_sentences` | not run yet (model still downloading) |
+| 25 | The open-weights task: the real `llama3.1:8b` yields only checked sentences and cannot change a source. | `test_real_local_model_only_ever_yields_checked_sentences` | pass with Ollama running; skipped when it is stopped |
+
+## A failure found with the real model, now fixed
+
+On 12 October 2026, `python -m heldmark.run` with `llama3.1:8b` turned the rule line
+
+```
+Reading aloud: 55, on record once. One result is not a pattern.
+```
+
+into
+
+```
+The learner read aloud 55 times, which is a single instance.
+```
+
+55 is a score. The sentence made it a count. The guard of that day kept the sentence, because it added no label, rank, path, source, or new number.
+
+The guard now rejects a sentence when a cited score is written as a count or a repeated action: a count word such as "times", "occasions", or "words" beside a number from the claim sheet, or a sentence about a scored line that no longer says score, mark, or result. The sentence is discarded and the rule text is kept. `test_a_score_rewritten_as_a_count_is_discarded` feeds the model's exact sentence through a fake model and checks that the rule line remains. This is a check on words beside a cited number, not a grammar checker.
 
 ## The one failure left open
 
@@ -82,3 +101,4 @@ FAILED tests/test_heldmark.py::test_same_task_under_two_school_names_is_one_patt
 - Scores are compared as written. A mark out of 20 and a mark out of 100 would be listed side by side.
 - Events are append-only and not de-duplicated. `python -m heldmark.run` uses a fresh store each time; pointing `--db` at a kept store and running the same intake folder twice would store each event twice.
 - The phrasing guard works on words. It is strict, so it also discards some harmless sentences, and the rule text is shown in their place.
+- The guard does not require the task kind to be named. On 12 October 2026 it kept "Scores of 72 and 75 were achieved on two quizzes", which drops "calculation". The rule profile is always printed above the model's sentences, so the teacher can see the difference.
