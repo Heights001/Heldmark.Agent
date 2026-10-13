@@ -44,11 +44,11 @@ The same diagram is available as a PDF in [docs/architecture.pdf](docs/architect
 
 Requirements: Python 3.11+ and Node.js 18+ (for the borrowed Filesystem MCP server). [Ollama](https://ollama.com) with the Llama 3.1 8B Instruct model is needed only for the phrasing step.
 
-From the repo root:
-
 ```bash
-python3.11 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]" && python -m heldmark.demo
+git clone https://github.com/Heights001/Heldmark.Agent.git && cd Heldmark.Agent && python3.11 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]" && python -m heldmark.demo
 ```
+
+The tests are `python -m pytest`.
 
 `python -m heldmark.demo` loads the five-school fixture and prints the sourced profile. The demo and the tests do not need Ollama. No learner data leaves the machine.
 
