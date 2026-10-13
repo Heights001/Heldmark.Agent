@@ -6,8 +6,8 @@ Last run on 13 October 2026 with Python 3.11, mcp 2.3.0, langgraph 1.2.14, pytes
 python -m pytest -v
 ```
 
-Result with Ollama stopped: **38 passed, 1 skipped, 1 expected failure left open.**
-Result with Ollama running: **39 passed, 1 expected failure left open.**
+Result with Ollama stopped: **39 passed, 1 skipped, 1 expected failure left open.**
+Result with Ollama running: **40 passed, 1 expected failure left open.**
 
 The demo and every test except one are model-free. The skipped test is the one marked `ollama`, which calls the real local model and runs only when Ollama is up with `llama3.1:8b`.
 
@@ -45,6 +45,7 @@ The demo and every test except one are model-free. The skipped test is the one m
 | 21b | A score rewritten as a count or a repeated action ("read aloud 55 times") is discarded and the rule line remains. | `test_a_score_rewritten_as_a_count_is_discarded` (5 cases) | pass |
 | 22 | The model receives only the claim sheet: no classmate data, no learner id, no path menu. A classmate's file in the intake folder is not stored. | `test_the_model_receives_only_the_claim_sheet` | pass |
 | 23 | With Ollama down, the rule profile is printed and the phrasing is reported as skipped. | `test_with_ollama_down_the_rule_profile_is_printed_and_phrasing_is_skipped` | pass |
+| 23b | `python -m heldmark.run` ends by printing the audit log, one row per tool call: time, tool, short input, short output. | `test_the_run_prints_the_audit_log_one_row_per_tool_call` | pass |
 | 24 | The full graph works with the real borrowed Filesystem server and our server as child processes. | `test_full_graph_with_the_real_filesystem_server_and_our_server_over_stdio` | pass (skipped if `npm install` was not run) |
 | 25 | The open-weights task: the real `llama3.1:8b` yields only checked sentences and cannot change a source. | `test_real_local_model_only_ever_yields_checked_sentences` | pass with Ollama running; skipped when it is stopped |
 

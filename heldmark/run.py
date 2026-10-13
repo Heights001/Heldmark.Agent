@@ -8,8 +8,10 @@ printed and the phrasing is skipped.
 """
 
 import argparse
+import json
 import os
 import tempfile
+from datetime import datetime
 from pathlib import Path
 
 import anyio
@@ -19,6 +21,38 @@ from .graph import run_update
 from .toolbox import Toolbox, filesystem_server, records_server
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "data" / "fixture"
+
+
+def _short(text: str, width: int) -> str:
+    text = " ".join(str(text).split())
+    return text if len(text) <= width else text[: width - 1] + "…"
+
+
+def _audit_line(row: dict) -> str:
+    """One audit row for the terminal: time, tool, a short input, a short output."""
+    given, output = json.loads(row["input"]), json.loads(row["output"])
+    if "path" in given:
+        said = os.path.basename(given["path"])
+    else:
+        shown = [given.get(key) for key in ("kind", "score", "source", "shown_to")]
+        said = ", ".join(str(value) for value in shown if value not in (None, "")) or f"learner {row['learner_id']}"
+    if row["outcome"] == "rejected":
+        got = f"REFUSED: {output['rejected']}"
+    elif row["tool"] == "append_event":
+        got = f"stored as event {output['id']}"
+    elif row["tool"] == "list_events":
+        got = f"{output['count']} events"
+    elif row["tool"] == "update_profile":
+        got = f"profile rewritten, {len(output['lines'])} lines"
+    else:
+        got = output.get("text", "")
+    at = datetime.fromisoformat(row["at"]).astimezone().strftime("%H:%M:%S")
+    return f"{at}  {row['tool']:<25}  {_short(said, 46):<46}  -> {_short(got, 40)}"
+
+
+def audit_report(rows: list[dict], learner_id: str) -> str:
+    out = [f"AUDIT LOG: {len(rows)} tool calls for learner {learner_id}, one row each (time, tool, input -> output)"]
+    return "\n".join(out + [_audit_line(row) for row in rows])
 
 
 def report(state: dict, tools: Toolbox, db: str) -> str:
@@ -40,7 +74,7 @@ def report(state: dict, tools: Toolbox, db: str) -> str:
             f"MODEL SENTENCES ({phrasing['model']}, local): {kept} kept, {len(phrasing['results']) - kept} discarded",
             phrase.render(phrasing["results"]),
         ]
-    out += ["", f"Audit log: {tools.calls} tool calls, each appended to {db}"]
+    out += ["", audit_report(tools.audit_rows(), state["learner_id"]), f"Stored in {db}"]
     return "\n".join(out)
 
 

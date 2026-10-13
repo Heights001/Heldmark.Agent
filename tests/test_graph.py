@@ -270,6 +270,29 @@ def test_with_ollama_down_the_rule_profile_is_printed_and_phrasing_is_skipped(db
     assert "MODEL SENTENCES" not in printed
 
 
+# 23b
+def test_the_run_prints_the_audit_log_one_row_per_tool_call(db, intake_dir):
+    async def go():
+        records = Records(store.connect(db))
+        async with Toolbox(build_server(records), stand_in_filesystem(intake_dir), db, "L1") as tools:
+            state = await run_update(tools, FakeModel(), "L1", str(intake_dir))
+            return report(state, tools, db), tools.calls
+
+    printed, calls = anyio.run(go)
+    log = printed[printed.index("AUDIT LOG") :].splitlines()
+    assert log[0].startswith("AUDIT LOG: 14 tool calls for learner L1")
+    rows = log[1 : 1 + calls]
+    assert len(rows) == 14 and all(len(row) <= 130 for row in rows)
+    assert "filesystem.list_directory" in rows[0] and "five_schools.json" in rows[0]
+    assert "filesystem.read_text_file" in rows[1] and "five_schools.json" in rows[1]
+    assert sum("append_event" in row for row in rows) == 10
+    assert sum("REFUSED: No source" in row for row in rows) == 1
+    assert "word_problem, 40, Class 1 word problem quiz" in rows[2]
+    assert "list_events" in rows[12] and "learner L1" in rows[12] and "9 events" in rows[12]
+    assert "update_profile" in rows[13] and "profile rewritten" in rows[13]
+    assert printed.index("RULE PROFILE") < printed.index("AUDIT LOG")  # the profile comes first, unchanged
+
+
 # 24
 @pytest.mark.skipif(not (FILESYSTEM_JS.exists() and shutil.which("node")), reason="run `npm install` to get the Filesystem MCP server")
 def test_full_graph_with_the_real_filesystem_server_and_our_server_over_stdio(db, intake_dir):

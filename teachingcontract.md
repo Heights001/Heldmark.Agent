@@ -254,6 +254,8 @@ The "score as count" row was added after the first real run. `llama3.1:8b` turne
 - `ready()` asks `/api/tags` which models are present. It returns `None` if `llama3.1:8b` can be used, or a sentence saying why not.
 - `phrase(claim)` posts to `/api/chat` with temperature 0 and a JSON schema, so the reply is always `{"sentence": "..."}`.
 
+At the end of a run, `run.py` prints the audit log: one row per tool call with the time, the tool, a short input, and a short output. It reads the rows through the toolbox's `audit_rows()`, so the graph nodes still import no database.
+
 `python -m heldmark.run` calls `ready()` first. If Ollama is down it prints the rule profile and the line "PHRASING SKIPPED". The rule profile is always printed first, so the teacher can compare.
 
 ## Step 16. Testing without the model

@@ -8,7 +8,7 @@ Two MCP servers sit behind it:
 
 The Filesystem server knows nothing about our audit log, so each read is
 appended to the log here, with input, output, timestamp, and learner id.
-This module writes audit rows only. It never touches events or profiles.
+This module writes and reads audit rows only. It never touches events or profiles.
 """
 
 import os
@@ -65,6 +65,10 @@ class Toolbox:
     async def __aexit__(self, *exc):
         await self._stack.aclose()
         self._audit.close()
+
+    def audit_rows(self) -> list[dict]:
+        """The audit log as written so far, oldest first. Read-only."""
+        return [dict(row) for row in self._audit.execute("SELECT * FROM audit_log ORDER BY id")]
 
     async def records(self, tool: str, **arguments):
         """Call heldmark-records. The server logs the call itself, including a refusal."""
