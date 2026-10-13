@@ -34,6 +34,8 @@ One new quiz, project, or note starts a single LangGraph workflow.
 
 Prior-school files are read from a local folder through a borrowed Filesystem MCP server. Learner memory is SQLite. Facts are append-only.
 
+The one-page account is [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ![Heldmark architecture: new evidence flows through LangGraph, rules in code, and a local LLM to the teacher, backed by the heldmark-records MCP server, SQLite, and a borrowed Filesystem MCP server](docs/architecture.png)
 
 The same diagram is available as a PDF in [docs/architecture.pdf](docs/architecture.pdf).
@@ -42,13 +44,10 @@ The same diagram is available as a PDF in [docs/architecture.pdf](docs/architect
 
 Requirements: Python 3.11+ and Node.js 18+ (for the borrowed Filesystem MCP server). [Ollama](https://ollama.com) with the Llama 3.1 8B Instruct model is needed only for the phrasing step.
 
+From the repo root:
+
 ```bash
-git clone https://github.com/Heights001/Heldmark.Agent.git
-cd Heldmark.Agent
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-python -m heldmark.demo
-python -m pytest
+python3.11 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]" && python -m heldmark.demo
 ```
 
 `python -m heldmark.demo` loads the five-school fixture and prints the sourced profile. The demo and the tests do not need Ollama. No learner data leaves the machine.
